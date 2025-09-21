@@ -1,18 +1,20 @@
 # export_to_c.py
 import numpy as np
 
-def array_to_c(name, data_bytes):
-    hex_list = ','.join(f'0x{b:02x}' for b in data_bytes)
-    return f'''#include <stddef.h>
-extern "C" {{
-const unsigned char {name}[] = {{{hex_list}}};
-const int {name}_len = {len(data_bytes)};
-}}'''
+def array_to_c(name, blob: bytes):
+    hex_list = ",".join(f"0x{b:02x}" for b in blob)
+    return (
+        '#include <stddef.h>\n'
+        'extern "C" {\n'
+        f'extern const unsigned char {name}[] = {{{hex_list}}};\n'
+        f'extern const int {name}_len = {len(blob)};\n'
+        '}\n'
+    )
 
 # 1) Modelo (elige int8 para ESP32)
 with open("model_int8.tflite","rb") as f:
     blob = f.read()
-open("model_data.cc","w").write(array_to_c("g_model", blob))
+open("model_data.cpp","w").write(array_to_c("g_model", blob))
 open("model_data.h","w").write('#pragma once\nextern "C" { extern const unsigned char g_model[]; extern const int g_model_len; }\n')
 
 # 2) Normalizador (mean y scale del StandardScaler)
