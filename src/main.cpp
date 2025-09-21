@@ -17,7 +17,7 @@
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
-#include "tensorflow/lite/micro/micro_error_reporter.h"
+#include <math.h>   // sqrtf, lroundf
 
 #define BAUD_RATE 115200 // Si tu serial se satura a 100 Hz con 14 campos, sube a 230400
 
@@ -59,23 +59,24 @@ static int    nFilled  = 0;
 // ==========================================================
 // Detección de modelo/normalizador (activar modo TFLM)
 // ==========================================================
-#if __has_include("model_data.h") && __has_include("feat_norm.h")
+#if __has_include("model_data.h") && __has_include("feat_norm.h") && __has_include("tensorflow/lite/micro/micro_interpreter.h")
   #define HAVE_TFLM 1
-  #include "model_data.h"   // g_model, g_model_len (generado desde TFLite)
-  #include "feat_norm.h"    // FEAT_MEAN[39], FEAT_SCALE[39], N_FEAT=39
+  #include "model_data.h"   // g_model, g_model_len
+  #include "feat_norm.h"    // FEAT_MEAN[], FEAT_SCALE[], N_FEAT
 
   // ---- TensorFlow Lite Micro ----
   #include "tensorflow/lite/micro/micro_interpreter.h"
   #include "tensorflow/lite/micro/all_ops_resolver.h"
+  #include "tensorflow/lite/micro/micro_error_reporter.h"  // necesario por MicroErrorReporter
   #include "tensorflow/lite/schema/schema_generated.h"
-  #include "tensorflow/lite/version.h"
+  // NO incluyas "tensorflow/lite/version.h"
 
   #ifndef N_FEAT
     #define N_FEAT 39
   #endif
   #define N_CLASS 5
 
-  constexpr int kTensorArenaSize = 40 * 1024; // subir si AllocateTensors falla
+  constexpr int kTensorArenaSize = 40 * 1024; // sube si AllocateTensors falla
   static uint8_t tensor_arena[kTensorArenaSize];
 
   static tflite::MicroInterpreter* interpreter = nullptr;
@@ -83,10 +84,9 @@ static int    nFilled  = 0;
   static TfLiteTensor* output_tensor = nullptr;
   static bool model_is_int8 = true;
 
-  // --------- Predicción cacheada para imprimir a 100 Hz ---------
+  // Predicción cacheada para imprimir a 100 Hz
   Prediction g_lastPred = {0,{0,0,0,0,0},0};
   volatile bool g_hasPred = false;
-
 #else
   #define HAVE_TFLM 0
   // En modo captura no usamos TFLM ni 39 features; solo emitimos 7 campos.
@@ -155,11 +155,12 @@ static void extract_features(float feat[N_FEAT]) {
 static void tflm_setup(){
   const tflite::Model* model = tflite::GetModel(g_model);
 
-  // Si "version.h" no está, TFLITE_SCHEMA_VERSION suele venir de schema_generated.h
+  // Chequeo de versión solo si existe la macro
+  #ifdef TFLITE_SCHEMA_VERSION
   if (model->version() != TFLITE_SCHEMA_VERSION) {
     Serial.println("Warning: TFLite schema version mismatch (continuando)");
-    // No nos detenemos, solo avisamos
   }
+  #endif
 
   static tflite::AllOpsResolver resolver;
 
@@ -188,7 +189,6 @@ static void tflm_setup(){
   model_is_int8 = (input_tensor->type == kTfLiteInt8);
   Serial.printf("TFLM listo. in_type=%d, out_type=%d\n", input_tensor->type, output_tensor->type);
 }
-
 
 static void classify_tfl(const float feat_normed[N_FEAT], float probs_out[5], int &argmax){
   // entrada
@@ -412,3 +412,4 @@ void setup(){
 }
 
 void loop(){ vTaskDelay(portMAX_DELAY); }
+
