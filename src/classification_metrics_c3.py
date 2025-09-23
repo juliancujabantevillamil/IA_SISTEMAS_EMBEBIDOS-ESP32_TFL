@@ -2,7 +2,7 @@ import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score, classification_report
 
 # Lee tu archivo on-device (C3)
-df = pd.read_csv("data.csv")
+df = pd.read_csv("data_corregida3.csv", sep=";", encoding="utf-8-sig", engine="python", decimal=",")
 
 # Asume estas columnas exactamente:
 # "Clase Real" y "Clase Predicha"

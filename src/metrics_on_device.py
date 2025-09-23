@@ -3,7 +3,7 @@ from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 
 # Cargar archivo
-df = pd.read_csv("data.csv")
+df = pd.read_csv("data_corregida3.csv", sep=";", encoding="utf-8-sig", engine="python", decimal=",")
 
 # 1. Exactitud por bloque
 # Suponemos que cada bloque está en el mismo orden que el plan de captura (Mov00, Mov01, etc.)
